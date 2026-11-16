@@ -924,7 +924,7 @@ button { font: inherit; color: inherit; }
 .gallery-item--grand { grid-column: 1 / -1; }
 @media (min-width: 600px) {
     .gallery-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
-    .gallery-item--grand { grid-column: 1 / span 2; grid-row: span 2; aspect-ratio: auto; }
+    .gallery-item--grand { grid-column: 1 / span 2; grid-row: span 2; }
     .gallery-item--grand.gallery-item--droite { grid-column: 3 / span 2; }
 }
 @media (min-width: 900px) {
