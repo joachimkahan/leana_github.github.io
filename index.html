@@ -9,8 +9,9 @@
     <!-- Google Fonts — Cormorant Garamond + Lato -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet">
 
+    <script>document.documentElement.classList.add('js');</script>
     <link rel="stylesheet" href="css/styles.css">
 
     <!-- Firebase SDK -->
@@ -21,158 +22,167 @@
     <!-- Page Transition Voile -->
     <div class="page-voile" id="page-voile"></div>
 
-    <!-- Custom Cursor -->
-    <div class="cursor-dot" id="cursor-dot"></div>
+    <!-- Curseur personnalisé (affiché au premier mouvement de souris) -->
+    <div class="cursor-dot" id="cursor-dot" aria-hidden="true"></div>
 
     <!-- ═══════════════════════════════════
          NAVBAR
     ═══════════════════════════════════ -->
-    <nav class="navbar" id="navbar">
+    <nav class="navbar" id="navbar" aria-label="Navigation principale">
         <div class="navbar-inner">
             <a href="#accueil" class="logo">Léana</a>
-            <ul class="nav-links">
+            <ul class="nav-links" id="nav-links">
                 <li><a href="#accueil">Accueil</a></li>
                 <li><a href="#apropos">À propos</a></li>
                 <li><a href="#looks">Portfolio</a></li>
                 <li><a href="#prestations">Prestations</a></li>
                 <li><a href="#contact">Contact</a></li>
             </ul>
-            <div class="hamburger" id="hamburger">
+            <button class="hamburger" id="hamburger" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-links">
                 <span></span><span></span><span></span>
-            </div>
+            </button>
         </div>
     </nav>
 
     <!-- ═══════════════════════════════════
-         HERO — Cinemagraph
+         HERO — couverture de magazine
     ═══════════════════════════════════ -->
     <header id="accueil" class="hero">
         <div class="hero-media">
             <img src="https://images.unsplash.com/photo-1599305090598-fe179d501227?auto=format&fit=crop&w=1920&q=80"
                  alt="Portrait de beauté, lumière dorée sur visage maquillé"
+                 width="1920" height="1280"
                  fetchpriority="high">
         </div>
-        <div class="hero-shimmer"></div>
         <div class="hero-overlay"></div>
 
-        <div class="hero-content">
-            <span class="hero-eyebrow">Makeup Artist · Paris</span>
-            <h1>Révélez votre<br><em>lumière naturelle</em></h1>
-            <p class="hero-description">
-                Maquillage sur-mesure pour les moments qui comptent.
-                Élégance, finesse et authenticité.
-            </p>
-            <a href="#contact" class="btn-primary" id="hero-cta">Réserver une séance</a>
+        <div class="hero-inner">
+            <div class="hero-content">
+                <span class="eyebrow hero-eyebrow">Makeup Artist · Paris</span>
+                <h1>Révélez votre<br><em>lumière naturelle</em></h1>
+                <p class="hero-description">
+                    Maquillage sur-mesure pour les moments qui comptent.
+                    Élégance, finesse et authenticité.
+                </p>
+                <div class="hero-actions">
+                    <a href="#contact" class="btn-primary" id="hero-cta">Réserver une séance</a>
+                    <a href="#looks" class="btn-link">Voir le portfolio</a>
+                </div>
+            </div>
         </div>
 
-        <div class="hero-scroll-indicator">
+        <div class="hero-scroll-indicator" aria-hidden="true">
             <span>Découvrir</span>
             <div class="scroll-line"></div>
         </div>
     </header>
 
+    <main>
     <!-- ═══════════════════════════════════
-         ABOUT — Split Screen
+         ABOUT
     ═══════════════════════════════════ -->
     <section id="apropos" class="section">
         <div class="container about-container">
-            <div class="about-image reveal about-image-parallax">
-                <img src="https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=800&q=80"
-                     alt="Léana, Makeup Artist en pleine préparation, lumière naturelle"
-                     loading="lazy"
-                     class="parallax-element"
-                     data-parallax-speed="0.08">
+            <div class="about-image about-image-parallax reveal">
+                <div class="about-frame">
+                    <img src="https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=800&q=80"
+                         alt="Léana, Makeup Artist en pleine préparation, lumière naturelle"
+                         width="800" height="1000"
+                         loading="lazy"
+                         class="parallax-element"
+                         data-parallax-speed="0.06">
+                </div>
             </div>
             <div class="about-text reveal">
                 <span class="eyebrow">À propos</span>
-                <h2>L'art de sublimer<br>ce qui existe déjà</h2>
-                <p>Je suis Léana, maquilleuse professionnelle depuis plus de 6 ans. Mon pinceau est au service d'une seule conviction : chaque visage porte déjà sa propre lumière — mon rôle est de la révéler.</p>
-
-                <p class="pull-quote">Le maquillage ne doit pas vous masquer. Il doit raconter votre histoire avec plus d'éclat.</p>
-
+                <h2 class="display">L'art de sublimer<br><em>ce qui existe déjà</em></h2>
+                <p class="about-lead">Je suis Léana, maquilleuse professionnelle depuis plus de 6 ans. Mon pinceau est au service d'une seule conviction : chaque visage porte déjà sa propre lumière — mon rôle est de la révéler.</p>
                 <p>Que ce soit pour le plus beau jour de votre vie, un shooting éditorial ou une soirée de gala, je compose des mises en beauté sur-mesure avec des produits haut de gamme et cruelty-free — pour un résultat lumineux, confortable et durable.</p>
-
-                <div class="about-signature">Léana.</div>
+                <div class="about-signature">Léana</div>
             </div>
         </div>
     </section>
 
     <!-- ═══════════════════════════════════
-         CINEMAGRAPH TRANSITION
+         BANDE TYPOGRAPHIQUE — citation
     ═══════════════════════════════════ -->
-    <div class="cine-banner">
-        <img src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1920&q=80"
-             alt="Pinceaux de maquillage, lumière artistique"
-             loading="lazy">
-        <div class="cine-banner-overlay"></div>
+    <div class="quote-band">
+        <div class="container">
+            <blockquote class="reveal">
+                <p>Le maquillage ne doit pas vous masquer. Il doit raconter votre histoire avec plus d'éclat.</p>
+                <cite>Léana</cite>
+            </blockquote>
+        </div>
     </div>
 
     <!-- ═══════════════════════════════════
-         LOOKS SIGNATURE — Editorial
+         PORTFOLIO — Looks Signature (si présents) + Galerie
     ═══════════════════════════════════ -->
     <section id="looks" class="section looks-section">
         <div class="container">
-            <span class="eyebrow reveal" style="text-align:center;">Portfolio</span>
-            <h2 class="section-title reveal">Looks Signature</h2>
-            <p class="section-subtitle reveal">Chaque visage est une toile. Chaque look, une histoire.</p>
 
-            <!-- Editorial Tabs -->
-            <div class="looks-tabs reveal" id="looks-tabs" role="tablist">
-                <!-- Dynamically generated -->
+            <!-- Looks Signature : masqué tant qu'il n'y a aucun look -->
+            <div class="looks-block" id="looks-block" hidden>
+                <div class="sec-head reveal">
+                    <div>
+                        <span class="eyebrow">Portfolio</span>
+                        <h2 class="display">Looks <em>Signature</em></h2>
+                    </div>
+                    <p class="sec-meta">Chaque visage est une toile. Chaque look, une histoire.</p>
+                </div>
+
+                <div class="looks-tabs" id="looks-tabs" role="tablist"></div>
+                <div class="looks-panels" id="looks-panels"></div>
             </div>
 
-            <!-- Look Panels -->
-            <div class="looks-panels" id="looks-panels">
-                <p style="text-align:center; color:var(--gris-pierre);">Chargement des looks...</p>
-            </div>
-
-            <!-- Dynamic Portfolio from DataStore -->
+            <!-- Galerie (titre unique quand il n'y a pas de look) -->
             <div class="portfolio-dynamic">
-                <span class="eyebrow" style="text-align:center;">Toutes mes réalisations</span>
-                <h3 class="section-title" style="font-size:var(--h3-size); margin-bottom: var(--space-lg);">Galerie</h3>
-                <div class="gallery-grid reveal-stagger" id="gallery-grid">
-                    <div style="grid-column: 1/-1; text-align: center; color: var(--gris-pierre);">Chargement de la galerie...</div>
+                <div class="sec-head reveal">
+                    <div>
+                        <span class="eyebrow" id="gallery-eyebrow">Portfolio</span>
+                        <h2 class="display">Galerie</h2>
+                    </div>
+                    <p class="sec-meta" id="gallery-count" hidden></p>
+                </div>
+                <div class="gallery-grid" id="gallery-grid">
+                    <p class="empty-note">Chargement de la galerie…</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- ═══════════════════════════════════
-         GLOW SLIDER — Avant/Après
+         AVANT / APRÈS
     ═══════════════════════════════════ -->
-    <section class="section glow-slider-section" id="glow-slider-section">
-        <div class="container">
-            <span class="eyebrow reveal" style="text-align:center;">Transformation</span>
-            <h2 class="section-title reveal">L'Avant & l'Après</h2>
-            <p class="section-subtitle reveal">Glissez pour révéler la transformation</p>
-        </div>
-
-        <div class="container">
-            <!-- Dynamic sliders container -->
-            <div id="ba-sliders-container">
-                <p style="text-align:center; color:var(--gris-pierre);">Chargement des transformations...</p>
+    <section class="section section-ink glow-slider-section" id="glow-slider-section">
+        <div class="container ba-layout">
+            <div class="ba-intro reveal">
+                <span class="eyebrow">Transformation</span>
+                <h2 class="display">L'Avant <em>&amp;</em> l'Après</h2>
+                <!-- Navigation entre plusieurs transformations -->
+                <div class="ba-nav" id="ba-nav" style="display:none;"></div>
             </div>
 
-            <!-- Navigation dots for multiple sliders -->
-            <div class="ba-nav" id="ba-nav" style="display:none;">
-                <!-- Generated dynamically -->
+            <div class="ba-stage reveal">
+                <div id="ba-sliders-container">
+                    <p class="empty-note">Chargement des transformations…</p>
+                </div>
             </div>
         </div>
     </section>
 
-
-
     <!-- ═══════════════════════════════════
-         PRESTATIONS
+         PRESTATIONS — carte de tarifs
     ═══════════════════════════════════ -->
     <section id="prestations" class="section">
-        <div class="container">
-            <span class="eyebrow reveal" style="text-align:center;">Services</span>
-            <h2 class="section-title reveal">Prestations & Tarifs</h2>
-            <p class="section-subtitle reveal">Des services sur mesure pour sublimer chaque occasion</p>
-            <div class="services-grid reveal-stagger" id="services-grid">
-                <!-- Injecté dynamiquement par JS -->
-                <div style="grid-column: 1/-1; text-align: center; color: var(--gris-pierre);">Chargement des prestations...</div>
+        <div class="container pricing-layout">
+            <div class="pricing-intro reveal">
+                <span class="eyebrow">Services</span>
+                <h2 class="display">Prestations <em>&amp; Tarifs</em></h2>
+                <p class="lede">Des services sur mesure pour sublimer chaque occasion.</p>
+            </div>
+            <div class="services-grid" id="services-grid">
+                <p class="empty-note">Chargement des prestations…</p>
             </div>
         </div>
     </section>
@@ -181,25 +191,27 @@
          CONTACT
     ═══════════════════════════════════ -->
     <section id="contact" class="section contact-section">
-        <div class="container">
-            <span class="eyebrow reveal" style="text-align:center;">Contact</span>
-            <h2 class="section-title reveal">Prendre Rendez-vous</h2>
-            <p class="section-subtitle reveal">Un projet, une envie, une question — écrivez-moi.</p>
+        <div class="container contact-layout">
+            <div class="contact-intro reveal">
+                <span class="eyebrow">Contact</span>
+                <h2 class="display">Prendre <em>rendez-vous</em></h2>
+                <p class="lede">Un projet, une envie, une question — écrivez-moi.</p>
+            </div>
 
-            <form id="contact-form" class="contact-form" action="https://formsubmit.co/l.lvxcvs06@gmail.com" method="POST">
+            <form id="contact-form" class="contact-form reveal" action="https://formsubmit.co/l.lvxcvs06@gmail.com" method="POST">
                 <!-- Configurations FormSubmit -->
                 <input type="hidden" name="_captcha" value="false">
                 <input type="hidden" name="_template" value="box">
                 <input type="hidden" name="_subject" value="Nouveau message depuis le site Léana Beauté !">
-                <input type="hidden" name="_next" value="http://localhost:8080/index.html#contact">
+                <input type="hidden" name="_next" value="https://joachimkahan.github.io/leana_github.github.io/index.html#contact">
 
                 <div class="form-group">
                     <label for="name">Nom complet</label>
-                    <input type="text" id="name" name="name" placeholder="Votre nom" required>
+                    <input type="text" id="name" name="name" placeholder="Votre nom" autocomplete="name" required>
                 </div>
                 <div class="form-group">
                     <label for="email">Adresse Email</label>
-                    <input type="email" id="email" name="email" placeholder="votre@email.com" required>
+                    <input type="email" id="email" name="email" placeholder="votre@email.com" autocomplete="email" inputmode="email" required>
                 </div>
                 <div class="form-group">
                     <label for="service">Type de prestation</label>
@@ -213,6 +225,7 @@
             </form>
         </div>
     </section>
+    </main>
 
     <!-- ═══════════════════════════════════
          FOOTER
@@ -224,19 +237,33 @@
                 <p>Créatrice de lumière et de confiance en soi.</p>
             </div>
 
-            <div class="footer-links">
-                <a href="#" id="open-admin-login" class="admin-link">Espace Pro</a>
-            </div>
+            <nav class="footer-nav" aria-label="Pied de page">
+                <a href="#accueil">Accueil</a>
+                <a href="#apropos">À propos</a>
+                <a href="#looks">Portfolio</a>
+                <a href="#prestations">Prestations</a>
+                <a href="#contact">Contact</a>
+            </nav>
+
             <div class="footer-bottom">
                 <p>&copy; 2026 Léana Beauté. Tous droits réservés.</p>
+                <div class="footer-links">
+                    <a href="#" id="open-admin-login" class="admin-link">Espace Pro</a>
+                </div>
             </div>
         </div>
     </footer>
 
-    <!-- Lightbox Modal -->
-    <div id="lightbox" class="lightbox">
-        <span class="lightbox-close">&times;</span>
+    <!-- Visionneuse -->
+    <div id="lightbox" class="lightbox viewer" role="dialog" aria-modal="true" aria-label="Visionneuse">
+        <button type="button" class="lightbox-close" aria-label="Fermer">&times;</button>
+        <button type="button" class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Photo précédente"></button>
         <div class="lightbox-content" id="lightbox-content"></div>
+        <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Photo suivante"></button>
+        <div class="lightbox-caption">
+            <span class="lightbox-caption-title" id="lightbox-title"></span>
+            <span class="lightbox-counter" id="lightbox-counter"></span>
+        </div>
     </div>
 
     <!-- Admin Login Modal -->
@@ -244,7 +271,7 @@
         <div class="lightbox-content" style="background: var(--blanc-art); padding: 48px 32px; text-align: center; position: relative; max-width: 400px; flex-direction: column;">
             <span class="admin-modal-close" style="position:absolute; top: 16px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--gris-pierre); line-height: 1;">&times;</span>
             <h2 style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 300; margin-bottom: 8px; color: var(--encre);">Accès Pro</h2>
-            <p style="margin-bottom: 32px; color: var(--gris-pierre); font-size: 0.9rem;">Veuillez entrer votre code PIN.</p>
+            <p style="margin-bottom: 32px; color: var(--brun-gris); font-size: 0.9rem;">Veuillez entrer votre code PIN.</p>
             <form id="client-pin-form" class="pin-form" onsubmit="event.preventDefault();">
                 <div class="pin-inputs" style="justify-content: center; margin-bottom: 10px;">
                     <input type="password" class="pin-box client-pin-box" maxlength="1" required aria-label="PIN chiffre 1">
@@ -263,6 +290,6 @@
     <!-- Scripts -->
     <script src="js/firebase-config.js?v=1.1.0"></script>
     <script src="js/dataStore.js?v=1.1.0"></script>
-    <script src="js/app.js?v=1.1.0"></script>
+    <script src="js/app.js?v=1.2.0"></script>
 </body>
 </html>

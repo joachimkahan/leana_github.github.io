@@ -1,28 +1,32 @@
 /**
  * Léana Beauté — Expérience Éditoriale Haut de Gamme
  * Direction Artistique : Vogue / Harper's Bazaar
- * 
+ *
  * Features:
- * - Custom cursor (desktop only)
+ * - Curseur personnalisé (souris fine, visible au 1er mouvement)
  * - Page transition voile
- * - Scroll reveal (IntersectionObserver)
- * - Navbar scroll behavior
- * - Mobile menu
- * - Editorial tabs (Looks Signature)
- * - Glow Slider (avant/après)
- * - Testimonials carousel (drag-to-scroll)
- * - Parallax
- * - Dynamic gallery (DataStore)
- * - Lightbox
- * - Admin login modal
- * - Contact form (AJAX)
- * - Magnetic buttons
+ * - Apparition au défilement (IntersectionObserver)
+ * - Navbar + menu mobile plein écran
+ * - Looks Signature (masqués s'il n'y en a aucun)
+ * - Avant/Après (pointer events, clavier, amorce unique)
+ * - Parallax léger (transform)
+ * - Galerie dynamique (DataStore) + visionneuse
+ * - Prestations en carte de tarifs
+ * - Modale d'accès Pro
  */
 
 document.addEventListener('DOMContentLoaded', () => {
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    /* Échappe le texte venant de la base avant de l'insérer dans le HTML */
+    const esc = (v) => String(v == null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
     /* ─────────────────────────────────────────
        0. PAGE TRANSITION VOILE
@@ -36,117 +40,165 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* ─────────────────────────────────────────
-       1. CUSTOM CURSOR
+       1. CURSEUR PERSONNALISÉ
+       Caché tant que la souris n'a pas bougé ; la boucle
+       d'animation s'arrête dès que le curseur est immobile.
     ───────────────────────────────────────── */
     const cursorDot = document.getElementById('cursor-dot');
 
-    if (cursorDot && !isTouchDevice) {
-        let cursorX = 0, cursorY = 0;
-        let dotX = 0, dotY = 0;
+    if (cursorDot && canHover) {
+        let targetX = 0, targetY = 0, dotX = 0, dotY = 0;
+        let started = false, running = false;
+
+        const loop = () => {
+            dotX += (targetX - dotX) * 0.2;
+            dotY += (targetY - dotY) * 0.2;
+            cursorDot.style.transform = `translate3d(${dotX}px, ${dotY}px, 0) translate(-50%, -50%)`;
+            if (Math.abs(targetX - dotX) > 0.1 || Math.abs(targetY - dotY) > 0.1) {
+                requestAnimationFrame(loop);
+            } else {
+                running = false;
+            }
+        };
 
         document.addEventListener('mousemove', (e) => {
-            cursorX = e.clientX;
-            cursorY = e.clientY;
-        });
+            targetX = e.clientX;
+            targetY = e.clientY;
+            if (!started) {
+                started = true;
+                dotX = targetX;
+                dotY = targetY;
+                document.documentElement.classList.add('has-cursor');
+            }
+            cursorDot.classList.add('ready');
+            if (!running) {
+                running = true;
+                requestAnimationFrame(loop);
+            }
+        }, { passive: true });
 
-        // Smooth follow with RAF
-        function animateCursor() {
-            dotX += (cursorX - dotX) * 0.15;
-            dotY += (cursorY - dotY) * 0.15;
-            cursorDot.style.left = dotX + 'px';
-            cursorDot.style.top = dotY + 'px';
-            requestAnimationFrame(animateCursor);
-        }
-        animateCursor();
+        document.documentElement.addEventListener('mouseleave', () => cursorDot.classList.remove('ready'));
 
-        // Hover state on clickable elements
-        const hoverTargets = 'a, button, .gallery-item, .looks-tab, .glow-slider-wrapper, .testimonial-card, input, select, textarea, [role="tab"]';
+        const hoverTargets = 'a, button, .gallery-item, .looks-tab, .glow-slider-wrapper, [role="button"], [role="tab"]';
+        const textTargets = 'input, textarea, select';
 
         document.addEventListener('mouseover', (e) => {
-            if (e.target.closest(hoverTargets)) {
-                cursorDot.classList.add('hover');
-            }
+            if (e.target.closest(textTargets)) cursorDot.classList.add('away');
+            else if (e.target.closest(hoverTargets)) cursorDot.classList.add('hover');
         });
         document.addEventListener('mouseout', (e) => {
-            if (e.target.closest(hoverTargets)) {
-                cursorDot.classList.remove('hover');
-            }
+            if (e.target.closest(textTargets)) cursorDot.classList.remove('away');
+            if (e.target.closest(hoverTargets)) cursorDot.classList.remove('hover');
         });
-
-        // Click flash
-        document.addEventListener('mousedown', () => {
-            cursorDot.classList.add('click');
-        });
-        document.addEventListener('mouseup', () => {
-            cursorDot.classList.remove('click');
-        });
-
-        // Hide default cursor
-        document.documentElement.style.cursor = 'none';
-        document.querySelectorAll('a, button, input, select, textarea, [role="tab"]').forEach(el => {
-            el.style.cursor = 'none';
-        });
+        document.addEventListener('mousedown', () => cursorDot.classList.add('click'));
+        document.addEventListener('mouseup', () => cursorDot.classList.remove('click'));
     } else if (cursorDot) {
         cursorDot.remove();
     }
 
 
     /* ─────────────────────────────────────────
-       2. SCROLL REVEAL (IntersectionObserver)
+       2. APPARITION AU DÉFILEMENT
+       watchReveal() est rappelée après chaque rendu dynamique.
     ───────────────────────────────────────── */
-    if (!prefersReducedMotion) {
-        const revealEls = document.querySelectorAll('.reveal, .reveal-stagger');
-        const revealObserver = new IntersectionObserver((entries, obs) => {
+    let revealObserver = null;
+    if (!prefersReducedMotion && 'IntersectionObserver' in window) {
+        revealObserver = new IntersectionObserver((entries, obs) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('visible');
                     obs.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+        }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+    }
 
-        revealEls.forEach(el => revealObserver.observe(el));
-    } else {
-        document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => {
-            el.classList.add('visible');
+    function watchReveal(root) {
+        (root || document).querySelectorAll('.reveal:not(.visible)').forEach(el => {
+            if (revealObserver) revealObserver.observe(el);
+            else el.classList.add('visible');
         });
     }
+    watchReveal(document);
 
 
     /* ─────────────────────────────────────────
-       3. NAVBAR (Scroll + Mobile)
+       3. NAVBAR + MENU MOBILE
     ───────────────────────────────────────── */
     const navbar = document.getElementById('navbar');
     const hamburger = document.getElementById('hamburger');
     const navLinks = document.querySelector('.nav-links');
 
-    window.addEventListener('scroll', () => {
-        navbar?.classList.toggle('scrolled', window.scrollY > 60);
-    }, { passive: true });
+    function setMenu(open) {
+        navLinks?.classList.toggle('active', open);
+        hamburger?.classList.toggle('open', open);
+        hamburger?.setAttribute('aria-expanded', open ? 'true' : 'false');
+        hamburger?.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
+        document.body.classList.toggle('menu-open', open);
+    }
 
     hamburger?.addEventListener('click', () => {
-        navLinks?.classList.toggle('active');
-        hamburger.classList.toggle('open');
+        setMenu(!navLinks.classList.contains('active'));
     });
 
     document.querySelectorAll('.nav-links a').forEach(link => {
-        link.addEventListener('click', () => {
-            navLinks?.classList.remove('active');
-            hamburger?.classList.remove('open');
-        });
+        link.addEventListener('click', () => setMenu(false));
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && navLinks?.classList.contains('active')) {
+            setMenu(false);
+            hamburger?.focus();
+        }
+    });
+
+    window.matchMedia('(min-width: 769px)').addEventListener?.('change', e => {
+        if (e.matches) setMenu(false);
     });
 
 
     /* ─────────────────────────────────────────
-       4. EDITORIAL TABS (Looks Signature)
+       4. SCROLL : navbar + parallax (un seul écouteur, throttlé par rAF)
     ───────────────────────────────────────── */
-    // --- Initialisation dynamique des Looks Signature ---
+    const parallaxEls = (!prefersReducedMotion && canHover)
+        ? [...document.querySelectorAll('.parallax-element')]
+        : [];
+    let scrollTicking = false;
+
+    function onScrollFrame() {
+        scrollTicking = false;
+        navbar?.classList.toggle('scrolled', window.scrollY > 60);
+
+        const vh = window.innerHeight;
+        parallaxEls.forEach(el => {
+            const frame = el.parentElement;
+            const rect = frame.getBoundingClientRect();
+            if (rect.bottom < 0 || rect.top > vh) return;
+            const speed = parseFloat(el.dataset.parallaxSpeed) || 0.05;
+            const maxShift = rect.height * 0.06;
+            const offset = (rect.top + rect.height / 2 - vh / 2) * speed;
+            const shift = Math.max(-maxShift, Math.min(maxShift, offset));
+            el.style.transform = `translate3d(0, ${shift.toFixed(1)}px, 0)`;
+        });
+    }
+    window.addEventListener('scroll', () => {
+        if (!scrollTicking) {
+            scrollTicking = true;
+            requestAnimationFrame(onScrollFrame);
+        }
+    }, { passive: true });
+    onScrollFrame();
+
+
+    /* ─────────────────────────────────────────
+       5. LOOKS SIGNATURE (masqués s'il n'y en a aucun)
+    ───────────────────────────────────────── */
     async function initDynamicLooks() {
+        const block = document.getElementById('looks-block');
         const tabsContainer = document.getElementById('looks-tabs');
         const panelsContainer = document.getElementById('looks-panels');
         if (!tabsContainer || !panelsContainer) return;
 
-        // On utilise la collection par défaut si DataStore n'est pas prêt ou erreur
         let looks = [];
         if (typeof DataStore !== 'undefined' && typeof DataStore.getLooks === 'function') {
             try {
@@ -156,41 +208,48 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (looks.length === 0) {
-            panelsContainer.innerHTML = '<p style="text-align:center;">Aucun look disponible.</p>';
-            return;
-        }
+        // Aucun look : le bloc reste masqué, la section devient la galerie
+        if (!looks || looks.length === 0) return;
 
-        // Génération des onglets
-        tabsContainer.innerHTML = looks.map((look, i) => `
-            <button class="looks-tab ${i === 0 ? 'active' : ''}" data-tab="${look.id}" role="tab" aria-selected="${i === 0 ? 'true' : 'false'}">${look.subtitle.split('—')[1]?.trim() || look.subtitle}</button>
-        `).join('');
+        // Des looks existent : on les montre et la galerie prend son propre surtitre
+        if (block) block.hidden = false;
+        const galleryEyebrow = document.getElementById('gallery-eyebrow');
+        if (galleryEyebrow) galleryEyebrow.textContent = 'Toutes mes réalisations';
 
-        // Génération des panneaux
+        const tabLabel = (look) => {
+            const sub = String(look.subtitle || look.title || '');
+            return sub.split('—')[1]?.trim() || sub;
+        };
+
+        // Onglets (inutiles s'il n'y a qu'un seul look)
+        tabsContainer.innerHTML = looks.length > 1 ? looks.map((look, i) => `
+            <button class="looks-tab ${i === 0 ? 'active' : ''}" data-tab="${esc(look.id)}" role="tab" aria-selected="${i === 0 ? 'true' : 'false'}">${esc(tabLabel(look))}</button>
+        `).join('') : '';
+
         panelsContainer.innerHTML = looks.map((look, i) => `
-            <div class="look-panel ${i === 0 ? 'active' : ''}" data-panel="${look.id}" role="tabpanel">
+            <div class="look-panel ${i === 0 ? 'active' : ''}" data-panel="${esc(look.id)}" role="tabpanel">
                 <div class="look-card">
                     <img class="look-hero-image"
-                         src="${look.heroImageUrl}"
-                         alt="${look.title}"
+                         src="${esc(look.heroImageUrl)}"
+                         alt="${esc(look.title)}"
+                         width="1200" height="1500"
                          loading="lazy">
-                    <span class="look-card-eyebrow">${look.subtitle}</span>
-                    <h2>${look.title}</h2>
-                    <p class="look-card-description">
-                        ${look.description}
-                    </p>
-                    <div class="look-detail-grid">
-                        <img src="${look.detailImage1Url}" alt="Détail 1" loading="lazy">
-                        <img src="${look.detailImage2Url}" alt="Détail 2" loading="lazy">
+                    <div class="look-copy">
+                        <span class="look-card-eyebrow">${esc(look.subtitle)}</span>
+                        <h3>${esc(look.title)}</h3>
+                        <p class="look-card-description">${esc(look.description)}</p>
+                        <div class="look-tags">
+                            ${String(look.tags || '').split(',').filter(t => t.trim()).map(tag => `<span class="look-tag">${esc(tag.trim())}</span>`).join('')}
+                        </div>
                     </div>
-                    <div class="look-tags">
-                        ${look.tags.split(',').map(tag => `<span class="look-tag">${tag.trim()}</span>`).join('')}
+                    <div class="look-detail-grid">
+                        <img src="${esc(look.detailImage1Url)}" alt="${esc(look.title)} — détail 1" width="600" height="750" loading="lazy">
+                        <img src="${esc(look.detailImage2Url)}" alt="${esc(look.title)} — détail 2" width="600" height="750" loading="lazy">
                     </div>
                 </div>
             </div>
         `).join('');
 
-        // Réattacher les événements sur les onglets générés
         const tabs = tabsContainer.querySelectorAll('.looks-tab');
         const panels = panelsContainer.querySelectorAll('.look-panel');
 
@@ -206,18 +265,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 tab.setAttribute('aria-selected', 'true');
 
                 panels.forEach(p => p.classList.remove('active'));
-                const panel = document.querySelector(`.look-panel[data-panel="${targetPanel}"]`);
+                const panel = panelsContainer.querySelector(`.look-panel[data-panel="${CSS.escape(targetPanel)}"]`);
                 if (panel) panel.classList.add('active');
             });
         });
     }
 
-    // Call dynamic looks init
     initDynamicLooks();
 
 
     /* ─────────────────────────────────────────
-       5. GLOW SLIDER (Avant/Après) — Dynamic
+       6. AVANT / APRÈS — dynamique
+       Avant à gauche, Après à droite. Pointer events (souris, doigt,
+       stylet), clavier (flèches), amorce unique à l'entrée dans l'écran.
     ───────────────────────────────────────── */
     async function initDynamicBeforeAfter() {
         const container = document.getElementById('ba-sliders-container');
@@ -233,21 +293,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (items.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:var(--gris-pierre);">Aucune transformation disponible.</p>';
+        if (!items || items.length === 0) {
+            container.innerHTML = '<p class="empty-note">Aucune transformation disponible.</p>';
             return;
         }
 
-        // Generate slider HTML for each item
         container.innerHTML = items.map((item, i) => `
             <div class="ba-slide ${i === 0 ? 'active' : ''}" data-ba-index="${i}">
-                <div class="ba-slide-title">${item.title}</div>
-                <div class="glow-slider-wrapper" data-slider-id="${i}">
-                    <div class="glow-slider-before">
-                        <img src="${item.beforeUrl}" alt="Avant — ${item.title}" loading="lazy">
+                <div class="glow-slider-wrapper" data-slider-id="${i}" tabindex="0" role="slider"
+                     aria-label="Comparer avant et après — ${esc(item.title)}"
+                     aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+                    <div class="glow-slider-after">
+                        <img src="${esc(item.afterUrl)}" alt="Après — ${esc(item.title)}" width="800" height="1000" loading="lazy" draggable="false">
                     </div>
-                    <div class="glow-slider-after" data-after-id="${i}">
-                        <img src="${item.afterUrl}" alt="Après — ${item.title}" loading="lazy">
+                    <div class="glow-slider-before" data-before-id="${i}">
+                        <img src="${esc(item.beforeUrl)}" alt="Avant — ${esc(item.title)}" width="800" height="1000" loading="lazy" draggable="false">
                     </div>
                     <div class="glow-slider-handle" data-handle-id="${i}">
                         <div class="glow-slider-handle-knob"></div>
@@ -255,147 +315,118 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="glow-slider-label left">Avant</span>
                     <span class="glow-slider-label right">Après</span>
                 </div>
+                <div class="ba-slide-title">${esc(item.title)}</div>
             </div>
         `).join('');
 
-        // Navigation dots (show only if multiple items)
+        const slides = container.querySelectorAll('.ba-slide');
+
+        // Navigation (seulement s'il y a plusieurs transformations)
         if (items.length > 1 && nav) {
             nav.style.display = 'flex';
             nav.innerHTML = items.map((item, i) => `
-                <button class="ba-dot ${i === 0 ? 'active' : ''}" data-ba-dot="${i}" aria-label="Transformation ${i + 1}">${item.title}</button>
+                <button class="ba-dot ${i === 0 ? 'active' : ''}" data-ba-dot="${i}" aria-label="Transformation ${i + 1}">${esc(item.title)}</button>
             `).join('');
 
-            // Dot click navigation
             const dots = nav.querySelectorAll('.ba-dot');
-            const slides = container.querySelectorAll('.ba-slide');
-
             dots.forEach(dot => {
                 dot.addEventListener('click', () => {
-                    const idx = parseInt(dot.dataset.baDot);
+                    const idx = parseInt(dot.dataset.baDot, 10);
                     slides.forEach(s => s.classList.remove('active'));
                     dots.forEach(d => d.classList.remove('active'));
                     slides[idx].classList.add('active');
                     dots[idx].classList.add('active');
-
-                    // Re-initialize slider at 50% for newly shown slide
-                    const afterEl = slides[idx].querySelector('[data-after-id]');
-                    const handleEl = slides[idx].querySelector('[data-handle-id]');
-                    if (afterEl && handleEl) {
-                        afterEl.style.clipPath = `inset(0 50% 0 0)`;
-                        handleEl.style.left = '50%';
-                    }
+                    const sl = slides[idx].querySelector('.glow-slider-wrapper');
+                    if (sl && sl._set) sl._set(50);
                 });
             });
         }
 
-        // Initialize each slider interaction
         const allSliders = container.querySelectorAll('.glow-slider-wrapper');
         allSliders.forEach(slider => {
-            const afterEl = slider.querySelector('[data-after-id]');
-            const handleEl = slider.querySelector('[data-handle-id]');
-            const labelLeft = slider.querySelector('.glow-slider-label.left');
-            const labelRight = slider.querySelector('.glow-slider-label.right');
+            const handleEl = slider.querySelector('.glow-slider-handle');
+            if (!handleEl) return;
 
-            if (!afterEl || !handleEl) return;
+            let pos = 50;
+            let dragging = false;
+            let introFrame = 0;
 
-            let isDragging = false;
-            let labelTimeout = null;
-
-            function updateSlider(percentage) {
-                percentage = Math.max(5, Math.min(95, percentage));
-                afterEl.style.clipPath = `inset(0 ${100 - percentage}% 0 0)`;
-                handleEl.style.left = percentage + '%';
+            function set(p) {
+                pos = Math.max(4, Math.min(96, p));
+                slider.style.setProperty('--pos', pos);
+                handleEl.style.transform = `translate3d(${(slider.clientWidth * pos / 100).toFixed(1)}px, 0, 0)`;
+                slider.setAttribute('aria-valuenow', String(Math.round(pos)));
             }
+            slider._set = set;
 
-            function getPercentage(clientX) {
+            function pct(clientX) {
                 const rect = slider.getBoundingClientRect();
                 return ((clientX - rect.left) / rect.width) * 100;
             }
-
-            function fadeLabels() {
-                if (labelTimeout) clearTimeout(labelTimeout);
-                labelLeft?.classList.remove('faded');
-                labelRight?.classList.remove('faded');
-                labelTimeout = setTimeout(() => {
-                    labelLeft?.classList.add('faded');
-                    labelRight?.classList.add('faded');
-                }, 2000);
+            function stopIntro() {
+                if (introFrame) { cancelAnimationFrame(introFrame); introFrame = 0; }
             }
 
-            // Mouse events
-            slider.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                updateSlider(getPercentage(e.clientX));
-                fadeLabels();
-                e.preventDefault();
+            slider.addEventListener('pointerdown', (e) => {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                stopIntro();
+                dragging = true;
+                slider.classList.add('dragging');
+                try { slider.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+                set(pct(e.clientX));
+            });
+            slider.addEventListener('pointermove', (e) => {
+                if (dragging) set(pct(e.clientX));
+            });
+            const endDrag = () => { dragging = false; slider.classList.remove('dragging'); };
+            slider.addEventListener('pointerup', endDrag);
+            slider.addEventListener('pointercancel', endDrag);
+            slider.addEventListener('lostpointercapture', endDrag);
+
+            slider.addEventListener('keydown', (e) => {
+                const step = e.shiftKey ? 15 : 5;
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { stopIntro(); set(pos - step); e.preventDefault(); }
+                else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { stopIntro(); set(pos + step); e.preventDefault(); }
+                else if (e.key === 'Home') { stopIntro(); set(4); e.preventDefault(); }
+                else if (e.key === 'End') { stopIntro(); set(96); e.preventDefault(); }
             });
 
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                updateSlider(getPercentage(e.clientX));
-            });
+            if (typeof ResizeObserver !== 'undefined') {
+                new ResizeObserver(() => set(pos)).observe(slider);
+            } else {
+                window.addEventListener('resize', () => set(pos));
+            }
+            set(50);
 
-            document.addEventListener('mouseup', () => {
-                isDragging = false;
-            });
-
-            // Touch events
-            slider.addEventListener('touchstart', (e) => {
-                isDragging = true;
-                updateSlider(getPercentage(e.touches[0].clientX));
-                fadeLabels();
-            }, { passive: true });
-
-            slider.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-                updateSlider(getPercentage(e.touches[0].clientX));
-                e.preventDefault();
-            }, { passive: false });
-
-            slider.addEventListener('touchend', () => {
-                isDragging = false;
-            });
-
-            // Initialize at 50%
-            updateSlider(50);
+            // Amorce unique : un va-et-vient lent à l'entrée dans l'écran (jamais en mouvement réduit)
+            const isFirst = slider.closest('.ba-slide')?.classList.contains('active');
+            if (isFirst && !prefersReducedMotion && 'IntersectionObserver' in window) {
+                const introObs = new IntersectionObserver((entries, obs) => {
+                    if (!entries.some(en => en.isIntersecting)) return;
+                    obs.disconnect();
+                    const duration = 2200;
+                    const start = performance.now();
+                    const tick = (now) => {
+                        const t = Math.min(1, (now - start) / duration);
+                        const wave = Math.sin(t * Math.PI * 2) * (1 - t);
+                        set(50 + wave * 22);
+                        introFrame = t < 1 ? requestAnimationFrame(tick) : 0;
+                    };
+                    introFrame = requestAnimationFrame(tick);
+                }, { threshold: 0.6 });
+                introObs.observe(slider);
+            }
         });
-
-        // Apply cursor: none on sliders if custom cursor is active
-        if (cursorDot && !isTouchDevice) {
-            allSliders.forEach(el => { el.style.cursor = 'none'; });
-        }
     }
 
     initDynamicBeforeAfter();
 
 
     /* ─────────────────────────────────────────
-       6. (Section supprimée)
+       7. GALERIE DYNAMIQUE (DataStore)
     ───────────────────────────────────────── */
+    let galleryData = [];   // [{ url, type, title }] — sert à la navigation de la visionneuse
 
-    /* ─────────────────────────────────────────
-       7. PARALLAX
-    ───────────────────────────────────────── */
-    if (!prefersReducedMotion && !isTouchDevice) {
-        const parallaxElements = document.querySelectorAll('.parallax-element');
-
-        window.addEventListener('scroll', () => {
-            const scrollY = window.scrollY;
-            parallaxElements.forEach(el => {
-                const speed = parseFloat(el.dataset.parallaxSpeed) || 0.05;
-                const rect = el.parentElement.getBoundingClientRect();
-                const offset = (rect.top + rect.height / 2 - window.innerHeight / 2) * speed;
-                // Clamp to 50px max
-                const clampedOffset = Math.max(-50, Math.min(50, offset));
-                el.style.transform = `translateY(${clampedOffset}px)`;
-            });
-        }, { passive: true });
-    }
-
-
-    /* ─────────────────────────────────────────
-       8. DYNAMIC GALLERY (DataStore)
-    ───────────────────────────────────────── */
     async function loadGallery() {
         const grid = document.getElementById('gallery-grid');
         if (!grid) return;
@@ -409,9 +440,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (items.length === 0) {
-            grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--gris-pierre);">Le portfolio est en cours de mise à jour.</p>';
+        if (!items || items.length === 0) {
+            grid.innerHTML = '<p class="empty-note">Le portfolio est en cours de mise à jour.</p>';
             return;
+        }
+
+        galleryData = items.map(item => ({ url: item.url, type: item.type, title: item.title || '' }));
+
+        const countEl = document.getElementById('gallery-count');
+        if (countEl) {
+            countEl.textContent = items.length > 1 ? `${items.length} réalisations` : '1 réalisation';
+            countEl.hidden = false;
         }
 
         grid.innerHTML = items.map((item, i) => {
@@ -419,10 +458,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let thumbUrl = item.url;
 
             if (isVideo) {
-                if (item.url.includes('youtube.com/watch?v=')) {
+                if (String(item.url).includes('youtube.com/watch?v=')) {
                     const vid = item.url.split('v=')[1].split('&')[0];
                     thumbUrl = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`;
-                } else if (item.url.includes('youtu.be/')) {
+                } else if (String(item.url).includes('youtu.be/')) {
                     const vid = item.url.split('youtu.be/')[1].split('?')[0];
                     thumbUrl = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`;
                 } else {
@@ -431,54 +470,53 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const videoBadge = isVideo ? `<span class="video-badge">Vidéo</span>` : '';
-            const videoIcon = isVideo ? `<div class="video-icon">▶</div>` : '';
-
-            const delay = Math.min(i * 0.08, 0.6);
+            const videoIcon = isVideo ? `<div class="video-icon" aria-hidden="true"></div>` : '';
+            const delay = ((i % 4) * 0.07).toFixed(2);
 
             return `
-            <div class="gallery-item"
-                 style="opacity:0; transform:translateY(20px); transition: opacity 0.6s ${delay}s ease, transform 0.6s ${delay}s var(--ease-smooth)"
-                 onclick="openLightbox('${item.url}', '${item.type}')">
+            <div class="gallery-item reveal" style="--d:${delay}s" data-index="${i}"
+                 role="button" tabindex="0" aria-label="Ouvrir : ${esc(item.title)}">
                 ${videoBadge}
-                <img src="${thumbUrl}" alt="${item.title}" loading="lazy">
+                <img src="${esc(thumbUrl)}" alt="${esc(item.title)}" width="800" height="1000" loading="lazy">
                 <div class="gallery-overlay">
                     ${videoIcon}
-                    <span>${item.title}</span>
+                    <span>${esc(item.title)}</span>
                 </div>
             </div>`;
         }).join('');
 
-        // Stagger reveal when in view
-        const galleryItems = grid.querySelectorAll('.gallery-item');
-        const galleryObs = new IntersectionObserver((entries, obs) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    galleryItems.forEach(item => {
-                        item.style.opacity = '1';
-                        item.style.transform = 'translateY(0)';
-                    });
-                    obs.unobserve(entry.target);
-                }
+        grid.querySelectorAll('.gallery-item').forEach(el => {
+            const open = () => window.openLightbox(galleryData[+el.dataset.index].url, galleryData[+el.dataset.index].type, +el.dataset.index);
+            el.addEventListener('click', open);
+            el.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
             });
-        }, { threshold: 0.1 });
+        });
 
-        galleryObs.observe(grid);
-
-        // Apply cursor: none on new gallery items if custom cursor is active
-        if (cursorDot && !isTouchDevice) {
-            galleryItems.forEach(el => { el.style.cursor = 'none'; });
-        }
+        watchReveal(grid);
     }
 
     loadGallery();
 
 
     /* ─────────────────────────────────────────
-       8.5. DYNAMIC PRESTATIONS (DataStore)
+       8. PRESTATIONS — carte de tarifs
+       Les titres « Supplément : … » et « Cours … : … » sont regroupés
+       sous un intertitre ; sans correspondance, liste simple.
     ───────────────────────────────────────── */
+    function formatPrice(price) {
+        const text = String(price == null ? '' : price).trim();
+        if (!text) return '';
+        const m = text.match(/^(à partir de|dès)\s*(.+)$/i);
+        if (m) {
+            return `<span class="price-pre">${esc(m[1])}</span><span class="price-val">${esc(m[2])}</span>`;
+        }
+        return `<span class="price-val">${esc(text)}</span>`;
+    }
+
     async function loadPrestations() {
-        const grid = document.getElementById('services-grid');
-        if (!grid) return;
+        const list = document.getElementById('services-grid');
+        if (!list) return;
 
         let items = [];
         if (typeof DataStore !== 'undefined' && typeof DataStore.getPrestations === 'function') {
@@ -489,53 +527,81 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (items.length === 0) {
-            grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--gris-pierre);">Les prestations sont en cours de mise à jour.</p>';
+        if (!items || items.length === 0) {
+            list.innerHTML = '<p class="empty-note">Les prestations sont en cours de mise à jour.</p>';
             return;
         }
 
-        grid.innerHTML = items.map((item, i) => {
-            const delay = Math.min(i * 0.1, 0.5);
+        // Séparation prestations principales / groupes (Supplément, Cours)
+        const main = [];
+        const groups = [];
+        items.forEach(item => {
+            const title = String(item.title || '').trim();
+            const m = title.match(/^((?:Suppl[ée]ments?|Cours)[^:]*?)\s*:\s*(.+)$/i);
+            if (m) {
+                const prefix = m[1].trim();
+                const key = prefix.toLowerCase();
+                const label = /^suppl/i.test(prefix) ? 'Suppléments' : prefix.charAt(0).toUpperCase() + prefix.slice(1);
+                let group = groups.find(g => g.key === key || (/^suppl/.test(key) && /^suppl/.test(g.key)));
+                if (!group) { group = { key, label, items: [] }; groups.push(group); }
+                group.items.push({ ...item, _title: m[2].trim() });
+            } else {
+                main.push({ ...item, _title: title });
+            }
+        });
+
+        let n = 0;
+        const row = (item) => {
+            n += 1;
+            const delay = Math.min(((n - 1) % 6) * 0.05, 0.3).toFixed(2);
+            const desc = item.description ? `<p>${esc(item.description)}</p>` : '';
             return `
-            <div class="service-card" style="opacity:0; transform:translateY(20px); transition: opacity 0.6s ${delay}s ease, transform 0.6s ${delay}s var(--ease-smooth)">
-                <div class="service-icon">${item.icon}</div>
-                <h3>${item.title}</h3>
-                <p>${item.description}</p>
-                <div class="service-price">${item.price}</div>
+            <div class="price-row reveal" style="--d:${delay}s">
+                <span class="price-num">${String(n).padStart(2, '0')}</span>
+                <div class="price-body">
+                    <h3>${esc(item._title)}</h3>
+                    ${desc}
+                </div>
+                <div class="price-amount">${formatPrice(item.price)}</div>
             </div>`;
-        }).join('');
+        };
 
-        // Stagger reveal when in view
-        const serviceCards = grid.querySelectorAll('.service-card');
-        const serviceObs = new IntersectionObserver((entries, obs) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    serviceCards.forEach(card => {
-                        card.style.opacity = '1';
-                        card.style.transform = 'translateY(0)';
-                    });
-                    obs.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.1 });
+        let html = '';
+        if (main.length) {
+            html += `<div class="price-list">${main.map(row).join('')}</div>`;
+        }
+        groups.forEach(g => {
+            html += `
+            <div class="price-group">
+                <h3 class="price-group-title reveal">${esc(g.label)}</h3>
+                <div class="price-list">${g.items.map(row).join('')}</div>
+            </div>`;
+        });
+        html += `<div class="price-cta reveal"><a href="#contact" class="btn-primary">Réserver</a></div>`;
 
-        serviceObs.observe(grid);
+        list.innerHTML = html;
+        watchReveal(list);
     }
 
     loadPrestations();
 
 
     /* ─────────────────────────────────────────
-       9. LIGHTBOX (Photos & Vidéos)
+       9. VISIONNEUSE (Photos & Vidéos)
+       openLightbox(url, type[, index]) reste l'entrée publique.
     ───────────────────────────────────────── */
     const lightbox = document.getElementById('lightbox');
     const lightboxContent = document.getElementById('lightbox-content');
     const lightboxClose = document.querySelector('.lightbox-close');
+    const lightboxTitle = document.getElementById('lightbox-title');
+    const lightboxCounter = document.getElementById('lightbox-counter');
+    const lightboxPrev = document.getElementById('lightbox-prev');
+    const lightboxNext = document.getElementById('lightbox-next');
+    let currentIndex = -1;
+    let lastFocused = null;
 
-    window.openLightbox = function (url, type) {
-        if (!lightbox || !lightboxContent) return;
+    function renderLightbox(url, type, title) {
         lightboxContent.innerHTML = '';
-
         if (type === 'video') {
             let embedUrl = url;
             if (url.includes('youtube.com/watch?v=')) {
@@ -545,25 +611,72 @@ document.addEventListener('DOMContentLoaded', () => {
                 const vid = url.split('youtu.be/')[1].split('?')[0];
                 embedUrl = `https://www.youtube.com/embed/${vid}?autoplay=1`;
             }
-            lightboxContent.innerHTML = `<iframe src="${embedUrl}" title="Lecteur vidéo" loading="lazy" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
+            lightboxContent.innerHTML = `<iframe src="${esc(embedUrl)}" title="Lecteur vidéo" loading="lazy" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
         } else {
-            lightboxContent.innerHTML = `<img src="${url}" alt="Réalisation">`;
+            lightboxContent.innerHTML = `<img src="${esc(url)}" alt="${esc(title || 'Réalisation')}">`;
+        }
+    }
+
+    function showGalleryItem(index) {
+        const n = galleryData.length;
+        if (!n) return;
+        currentIndex = ((index % n) + n) % n;
+        const item = galleryData[currentIndex];
+        renderLightbox(item.url, item.type, item.title);
+        if (lightboxTitle) lightboxTitle.textContent = item.title;
+        if (lightboxCounter) lightboxCounter.textContent = `${String(currentIndex + 1).padStart(2, '0')} / ${String(n).padStart(2, '0')}`;
+    }
+
+    window.openLightbox = function (url, type, index) {
+        if (!lightbox || !lightboxContent) return;
+        lastFocused = document.activeElement;
+
+        let idx = typeof index === 'number' ? index : galleryData.findIndex(g => g.url === url);
+        if (idx >= 0 && galleryData[idx]) {
+            lightbox.classList.toggle('has-nav', galleryData.length > 1);
+            showGalleryItem(idx);
+        } else {
+            currentIndex = -1;
+            lightbox.classList.remove('has-nav');
+            if (lightboxTitle) lightboxTitle.textContent = '';
+            if (lightboxCounter) lightboxCounter.textContent = '';
+            renderLightbox(url, type, '');
         }
 
         lightbox.classList.add('active');
         document.body.style.overflow = 'hidden';
+        lightboxClose?.focus({ preventScroll: true });
     };
 
     function closeLightbox() {
-        if (!lightbox) return;
+        if (!lightbox || !lightbox.classList.contains('active')) return;
         lightbox.classList.remove('active');
         if (lightboxContent) lightboxContent.innerHTML = '';
         document.body.style.overflow = '';
+        if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus({ preventScroll: true });
     }
 
     lightboxClose?.addEventListener('click', closeLightbox);
-    lightbox?.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+    lightbox?.addEventListener('click', e => { if (e.target === lightbox || e.target === lightboxContent) closeLightbox(); });
+    lightboxPrev?.addEventListener('click', () => showGalleryItem(currentIndex - 1));
+    lightboxNext?.addEventListener('click', () => showGalleryItem(currentIndex + 1));
+
+    document.addEventListener('keydown', e => {
+        if (!lightbox?.classList.contains('active')) return;
+        if (e.key === 'Escape') closeLightbox();
+        else if (e.key === 'ArrowLeft' && currentIndex >= 0) showGalleryItem(currentIndex - 1);
+        else if (e.key === 'ArrowRight' && currentIndex >= 0) showGalleryItem(currentIndex + 1);
+    });
+
+    // Balayage horizontal au doigt
+    let touchStartX = null;
+    lightbox?.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+    lightbox?.addEventListener('touchend', e => {
+        if (touchStartX === null || currentIndex < 0) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        touchStartX = null;
+        if (Math.abs(dx) > 50) showGalleryItem(currentIndex + (dx < 0 ? 1 : -1));
+    }, { passive: true });
 
 
     /* ─────────────────────────────────────────
@@ -646,7 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ─────────────────────────────────────────
        11. CONTACT FORM
     ───────────────────────────────────────── */
-    // Le formulaire est maintenant géré nativement via formsubmit.co
-    // L'interception AJAX a été supprimée pour permettre la page d'activation requise lors du premier envoi.
+    // Le formulaire est géré nativement via formsubmit.co
+    // (pas d'interception AJAX : la page d'activation du premier envoi doit rester accessible).
 
 });
