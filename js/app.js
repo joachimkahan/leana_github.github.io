@@ -572,20 +572,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     /* ─────────────────────────────────────────
-       8. PRESTATIONS — carte de tarifs
-       Les titres « Supplément : … » et « Cours … : … » sont regroupés
-       sous un intertitre ; sans correspondance, liste simple.
+       8. PRESTATIONS — cartes
     ───────────────────────────────────────── */
-    function formatPrice(price) {
-        const text = String(price == null ? '' : price).trim();
-        if (!text) return '';
-        const m = text.match(/^(à partir de|dès)\s*(.+)$/i);
-        if (m) {
-            return `<span class="price-pre">${esc(m[1])}</span><span class="price-val">${esc(m[2])}</span>`;
-        }
-        return `<span class="price-val">${esc(text)}</span>`;
-    }
-
     async function loadPrestations() {
         const list = document.getElementById('services-grid');
         if (!list) return;
@@ -604,52 +592,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Séparation prestations principales / groupes (Supplément, Cours)
-        const main = [];
-        const groups = [];
-        items.forEach(item => {
-            const title = String(item.title || '').trim();
-            const m = title.match(/^((?:Suppl[ée]ments?|Cours)[^:]*?)\s*:\s*(.+)$/i);
-            if (m) {
-                const prefix = m[1].trim();
-                const key = prefix.toLowerCase();
-                const label = /^suppl/i.test(prefix) ? 'Suppléments' : prefix.charAt(0).toUpperCase() + prefix.slice(1);
-                let group = groups.find(g => g.key === key || (/^suppl/.test(key) && /^suppl/.test(g.key)));
-                if (!group) { group = { key, label, items: [] }; groups.push(group); }
-                group.items.push({ ...item, _title: m[2].trim() });
-            } else {
-                main.push({ ...item, _title: title });
-            }
-        });
-
-        let n = 0;
-        const row = (item) => {
-            n += 1;
-            const delay = Math.min(((n - 1) % 6) * 0.05, 0.3).toFixed(2);
-            const desc = item.description ? `<p>${esc(item.description)}</p>` : '';
+        const html = items.map((item, i) => {
+            const delay = Math.min(i * 0.1, 0.5).toFixed(2);
             return `
-            <div class="price-row reveal" style="--d:${delay}s">
-                <span class="price-num">${String(n).padStart(2, '0')}</span>
-                <div class="price-body">
-                    <h3>${esc(item._title)}</h3>
-                    ${desc}
+            <div class="service-card reveal" style="--d:${delay}s">
+                <div class="service-card-inner">
+                    <div class="service-icon">${esc(item.icon || '')}</div>
+                    <h3>${esc(item.title || '')}</h3>
+                    <p>${esc(item.description || '')}</p>
+                    <div class="service-price">${esc(item.price || '')}</div>
                 </div>
-                <div class="price-amount">${formatPrice(item.price)}</div>
             </div>`;
-        };
-
-        let html = '';
-        if (main.length) {
-            html += `<div class="price-list">${main.map(row).join('')}</div>`;
-        }
-        groups.forEach(g => {
-            html += `
-            <div class="price-group">
-                <h3 class="price-group-title reveal">${esc(g.label)}</h3>
-                <div class="price-list">${g.items.map(row).join('')}</div>
-            </div>`;
-        });
-        html += `<div class="price-cta reveal"><a href="#contact" class="btn-primary">Réserver</a></div>`;
+        }).join('');
 
         list.innerHTML = html;
         watchReveal(list);
