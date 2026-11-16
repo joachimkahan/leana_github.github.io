@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (n < 4) return new Map();
         const target = n / 5;
         let best = null;
-        for (let b = 1; b <= Math.floor(n / 2); b++) {
+        for (let b = 0; b <= Math.floor(n / 2); b++) {
             if ((n - b) % mod !== 0) continue;
             let map = null;
             for (let start = 0; start < 4 && !map; start++) {
