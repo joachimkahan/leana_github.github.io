@@ -425,6 +425,64 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ─────────────────────────────────────────
        7. GALERIE DYNAMIQUE (DataStore)
     ───────────────────────────────────────── */
+    /* Grille toujours pleine : choisit le nombre de grandes vignettes selon le nombre de
+       colonnes (4 ou 2) en simulant le placement "dense" de la grille CSS. */
+    function simulateGallery(n, grands, cols) {
+        const occ = [];
+        const free = (r, c, w, h) => {
+            for (let y = r; y < r + h; y++) for (let x = c; x < c + w; x++) {
+                if (x >= cols || (occ[y] && occ[y][x])) return false;
+            }
+            return true;
+        };
+        const mark = (r, c, w, h) => {
+            for (let y = r; y < r + h; y++) { occ[y] = occ[y] || []; for (let x = c; x < c + w; x++) occ[y][x] = true; }
+        };
+        for (let i = 0; i < n; i++) {
+            const g = grands.get(i);
+            let w = 1, h = 1, startCols = null;
+            if (g && cols === 4) { w = 2; h = 2; startCols = [g.droite ? 2 : 0]; }
+            else if (g) { w = 2; h = 1; startCols = [0]; }
+            let placed = false;
+            for (let r = 0; !placed; r++) {
+                const options = startCols || Array.from({ length: cols }, (_, k) => k);
+                for (const c of options) {
+                    if (free(r, c, w, h)) { mark(r, c, w, h); placed = true; break; }
+                }
+            }
+        }
+        const rows = occ.length;
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (!occ[r] || !occ[r][c]) return false;
+        return true;
+    }
+
+    function pickGrands(n, cols) {
+        const mod = cols === 4 ? 4 : 2;
+        const build = (b, start) => {
+            const map = new Map();
+            for (let k = 0; k < b; k++) {
+                const idx = Math.min(n - 1, start + Math.round(k * n / b));
+                map.set(idx, { droite: k % 2 === 1 });
+            }
+            return map;
+        };
+        if (n < 4) return new Map();
+        const target = n / 5;
+        let best = null;
+        for (let b = 1; b <= Math.floor(n / 2); b++) {
+            if ((n - b) % mod !== 0) continue;
+            let map = null;
+            for (let start = 0; start < 4 && !map; start++) {
+                const m = build(b, start);
+                if (m.size === b && simulateGallery(n, m, cols)) map = m;
+            }
+            if (!map) continue;
+            if (!best || Math.abs(b - target) < Math.abs(best.b - target)) best = { b, map };
+        }
+        return best ? best.map : new Map();
+    }
+    /*GALLERY_HELPERS_END*/
+
     let galleryData = [];   // [{ url, type, title }] — sert à la navigation de la visionneuse
 
     async function loadGallery() {
@@ -492,6 +550,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
             });
         });
+
+        // Grandes vignettes : nombre choisi pour que la dernière rangée soit toujours pleine
+        const items4 = grid.querySelectorAll('.gallery-item');
+        const mq = window.matchMedia('(min-width: 600px)');
+        const applyLayout = () => {
+            const grands = pickGrands(items4.length, mq.matches ? 4 : 2);
+            items4.forEach((el, i) => {
+                const g = grands.get(i);
+                el.classList.toggle('gallery-item--grand', !!g);
+                el.classList.toggle('gallery-item--droite', !!(g && g.droite));
+            });
+        };
+        applyLayout();
+        if (mq.addEventListener) mq.addEventListener('change', applyLayout);
 
         watchReveal(grid);
     }
