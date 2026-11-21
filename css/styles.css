@@ -1485,6 +1485,21 @@ footer {
 }
 .admin-link:hover { color: var(--blanc-art); }
 
+.footer-credit a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(179, 165, 154, 0.45);
+    transition: color 0.3s, text-decoration-color 0.3s;
+}
+.footer-credit a:hover {
+    color: var(--blanc-art);
+    text-decoration-color: var(--blanc-art);
+}
+
 /* ═══════════════════════════════════════════
    ADMIN INTERFACE (inherited, minimal changes)
    ═══════════════════════════════════════════ */
